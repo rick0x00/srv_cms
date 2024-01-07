@@ -1,4 +1,4 @@
-# Contect Management System(CMS) Server
+# Content Management System(CMS) Server
 
 My Tool to help for create CMS Servers
 
