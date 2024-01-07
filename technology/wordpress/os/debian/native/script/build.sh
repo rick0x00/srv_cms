@@ -25,7 +25,11 @@ fi
 
 DATE_NOW="$(date +Y%Ym%md%d-H%HM%MS%S)" # extracting date and time now
 
-### database settings
+### database vars
+database_bind_address="127.0.0.1" # setting to listen only localhost
+#database_bind_address="0.0.0.0" # setting to listen for everybody
+database_bind_port="3306" # setting to listen on default MySQL port
+
 database_host="localhost"
 database_root_user="root"
 database_root_pass="supersecret123"
@@ -37,7 +41,7 @@ database_db_name="wordpress_db_name"
 database_db_charset="utf8mb4"
 database_db_collate="utf8mb4_general_ci"
 
-### apache settings
+### apache vars
 site_name="wordpress"
 site_path="/var/www/wordpress"
 site_subdomain="wordpress"
@@ -91,6 +95,9 @@ function remove_space_from_beginning_of_line {
 
 
 function install_generic_tools() {
+    # update repository
+    apt update
+
     #### start generic tools
     # install basic network tools
     apt install -y net-tools iproute2 traceroute iputils-ping mtr
@@ -238,13 +245,34 @@ function install_server () {
     install_wordpress
 }
 
-function stop_server () {
+function stop_apache () {
+    # stopping apache
 
     #service apache2 stop
     #systemctl stop apache
     /etc/init.d/apache2 stop
 
+    # ensuring it will be stopped
+    # for Daemon running on foreground mode
     killall apache2
+}
+
+function stop_mariadb () {
+    # stopping mariadb
+
+    #service mariadb stop
+    #systemctl stop mariadb
+    /etc/init.d/mariadb stop
+
+    # ensuring it will be stopped
+    # for Daemon running on foreground mode
+    killall mariadbd
+}
+
+function stop_server () {
+    # stopping server
+    stop_apache
+    stop_mariadb
 }
 
 ################################
@@ -378,11 +406,11 @@ function configure_apache() {
     # Configuring Apache
     echo "Configuring Apache"
 
-    site_name="${site_name:-'debian'}"
-    site_path="${site_path:-'/var/www/html'}"
-    site_subdomain="${site_subdomain:-'debian'}"
-    site_root_domain="${site_root_domain:-'local'}"
-    site_ssl_enabled="${site_ssl_enabled:-'false'}"
+    local site_name="${site_name:-'debian'}"
+    local site_path="${site_path:-'/var/www/html'}"
+    local site_subdomain="${site_subdomain:-'debian'}"
+    local site_root_domain="${site_root_domain:-'local'}"
+    local site_ssl_enabled="${site_ssl_enabled:-'false'}"
 
     # configuring security on Apache
     configure_apache_security
@@ -394,11 +422,11 @@ function configure_apache() {
 function configure_apache_wordpress() {
     # Configure Apache for WordPress
 
-    site_name="${site_name}"
-    site_path="${site_path}"
-    site_subdomain="${site_subdomain}"
-    site_root_domain="${site_root_domain}"
-    site_ssl_enabled="${site_ssl_enabled}"
+    local site_name="${site_name}"
+    local site_path="${site_path}"
+    local site_subdomain="${site_subdomain}"
+    local site_root_domain="${site_root_domain}"
+    local site_ssl_enabled="${site_ssl_enabled}"
 
     # configuring WordPress on Apache Server
     configure_apache
@@ -411,19 +439,29 @@ function configure_apache_wordpress() {
 function configure_mariadb_server() {
     # configuring mariadb server
 
-    mariadb_bind_address="127.0.0.1" # setting to listen only localhost
-    #mariadb_bind_address="0.0.0.0" # setting to listen for everybody
+    database_bind_address="${database_bind_address:-'127.0.0.1'}" # setting to listen only localhost
+    #database_bind_address="0.0.0.0" # setting to listen for everybody
 
-    mariadb_bind_port="3306" # setting to listen on default MySQL port
+    database_bind_port="${database_bind_port:-'3306'}" # setting to listen on default MySQL port
 
     echo "
     [mysqld]
     sql-mode="STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION"
     #character-set-server=utf8
     default-authentication-plugin=mysql_native_password
-    bind-address=${mariadb_bind_address}
-    port=${mariadb_bind_port}
+    bind-address=${database_bind_address}
+    port=${database_bind_port}
+
+    # log configurations    
+    log_error=/var/log/mysql/error.log
+    general_log_file=/var/log/mysql/general.log
+    general_log=1
+
+    # security configurations
+    version = 10
+
     " > /etc/mysql/mariadb.conf.d/99-server.cnf 
+    remove_space_from_beginning_of_line "4" "/etc/mysql/mariadb.conf.d/99-server.cnf "
 
 }
 
@@ -474,7 +512,7 @@ function creating_mariadb_user() {
 
 function creating_mariadb_database() {
     # making new database
-    mysql -h $database_host -u"$database_root_user" -p"$database_root_pass" -e "CREATE DATABASE ${database_db_name} CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
+    mysql -h $database_host -u"$database_root_user" -p"$database_root_pass" -e "CREATE DATABASE ${database_db_name} CHARACTER SET ${database_db_charset} COLLATE ${database_db_collate};"
     mysql -h $database_host -u"$database_root_user" -p"$database_root_pass" -e "GRANT ALL PRIVILEGES ON ${database_db_name}.* TO ${database_user}@'${database_user_access_host}';"
     mysql -h $database_host -u"$database_root_user" -p"$database_root_pass" -e "FLUSH PRIVILEGES;"
 }
@@ -576,9 +614,23 @@ function check_configs_apache() {
     apachectl configtest
 }
 
+function check_configs_database() {
+    #check config of database
+    echo "step not configured"
+    exit 1;
+}
+
+function check_configs_wordpress() {
+    #check config of database
+    echo "step not configured"
+    exit 1;
+}
+
 function check_configs () {
     # check if the configuration file is ok.
     check_configs_apache
+    #check_configs_database
+    #check_configs_wordpress
 }
 
 function start_apache () {
@@ -588,8 +640,19 @@ function start_apache () {
     #systemctl start apache
     /etc/init.d/apache2 start
 
-    # Deamon running on foreground mode
+    # Daemon running on foreground mode
     #apachectl -D FOREGROUND
+}
+
+function start_mariadb () {
+    # starting mariadb
+
+    #service mariadb start
+    #systemctl start mariadb
+    /etc/init.d/mariadb start
+
+    # Daemon running on foreground mode
+    #/usr/sbin/mariadbd
 }
 
 
@@ -598,6 +661,9 @@ function start_server () {
 
     # starting apache
     start_apache
+
+    # starting mariadb
+    start_mariadb
 }
 
 function test_apache () {
@@ -678,11 +744,70 @@ function test_apache () {
 
 }
 
+function test_mariadb () {
+    # testing mariadb
+
+    # is running ????
+    #service mariadb status
+    #systemctl status  --no-pager -l mariadb
+    /etc/init.d/mariadb status
+    ps -ef --forest | grep mariadb
+
+    # is listening ?
+    ss -pultan | grep :${database_bind_port}
+
+    # is creating logs ????
+    tail /var/log/mysql/*
+
+    # Validating...
+
+    ## scanning apache ports using NETCAT
+    nc -zv localhost ${database_bind_port}
+    #root@wordpress:~# nc -zv localhost 3306
+    #nc: connect to localhost (::1) port 3306 (tcp) failed: Connection refused
+    #Connection to localhost (127.0.0.1) 3306 port [tcp/mysql] succeeded!
+
+
+    ## scanning apache ports using NMAP
+    nmap -A localhost -sT -p ${database_bind_port}
+    #root@wordpress:~# nmap -A localhost -sT -p 3306
+	#Starting Nmap 7.80 ( https://nmap.org ) at 2024-01-07 15:49 UTC
+	#Nmap scan report for localhost (127.0.0.1)
+	#Host is up (0.00013s latency).
+	#Other addresses for localhost (not scanned): ::1
+	#
+	#PORT     STATE SERVICE VERSION
+	# 3306/tcp open  mysql   MySQL 5.5.5-10.5.21-MariaDB-0+deb11u1-log
+	#| mysql-info: 
+	#|   Protocol: 10
+	#|   Version: 5.5.5-10.5.21-MariaDB-0+deb11u1-log
+	#|   Thread ID: 8
+	#|   Capabilities flags: 63486
+	#|   Some Capabilities: IgnoreSigpipes, Speaks41ProtocolOld, Support41Auth, SupportsTransactions, ConnectWithDatabase, ODBCClient, SupportsLoadDataLocal, Speaks41ProtocolNew, IgnoreSpaceBeforeParenthesis, InteractiveClient, LongColumnFlag, SupportsCompression, DontAllowDatabaseTableColumn, FoundRows, SupportsMultipleStatments, SupportsAuthPlugins, SupportsMultipleResults
+	#|   Status: Autocommit
+	#|   Salt: 5C.[bZ})P6\LHeBZ~-`~
+	#|_  Auth Plugin Name: mysql_native_password
+	#Warning: OSScan results may be unreliable because we could not find at least 1 open and 1 closed port
+	#Device type: general purpose
+	#Running: Linux 2.6.X
+	#OS CPE: cpe:/o:linux:linux_kernel:2.6.32
+	#OS details: Linux 2.6.32
+	#Network Distance: 0 hops
+	#
+	#OS and Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+	#Nmap done: 1 IP address (1 host up) scanned in 2.66 seconds
+
+    echo -e "\n" | telnet localhost ${database_bind_port}
+}
+
 function test_server () {
     # TESTS
 
     # testing Apache
     test_apache
+
+    # testing mariadb
+    test_mariadb
 }
 
 
@@ -695,7 +820,7 @@ function test_server () {
 # end argument reading
 # ============================================================ #
 # start main executions of code
-install_generic_tools
+install_generic_tools;
 pre_install_server;
 install_server;
 stop_server;
