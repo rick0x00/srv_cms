@@ -39,7 +39,7 @@ database_pass="wordpress_db_pass"
 database_user_access_host="localhost"
 database_db_name="wordpress_db_name"
 database_db_charset="utf8mb4"
-database_db_collate="utf8mb4_general_ci"
+database_db_collate="utf8mb4_unicode_ci"
 
 ### apache vars
 site_name="wordpress"
@@ -93,11 +93,33 @@ function remove_space_from_beginning_of_line {
     sed -i "s/^[[:space:]]\{${spaces}\}//" "${file}"
 }
 
+function massager_sharp() {
+    line_divisor="###########################################################################################"
+    echo "${line_divisor}"
+    echo "$*"
+    echo "${line_divisor}"
+}
+
+function massager_line() {
+    line_divisor="-------------------------------------------------------------------------------------------"
+    echo "${line_divisor}"
+    echo "$*"
+    echo "${line_divisor}"
+}
+
+function massager_plus() {
+    line_divisor="++++++++++++++++++++++++++++++++++++++++++++++++++"
+    echo "${line_divisor}"
+    echo "$*"
+    echo "${line_divisor}"
+}
+
 # end complement functions
 # ============================== #
 # start main functions
 
 function pre_install_server () {
+    massager_line "Pre install server step"
 
     function install_generic_tools() {
         # update repository
@@ -147,6 +169,9 @@ function pre_install_server () {
 ## install steps
 
 function install_apache () {
+    # installing Apache
+    massager_plus "Installing Apache"
+
     function install_from_source () {
         echo "step not configured"
         exit 1;
@@ -164,6 +189,8 @@ function install_apache () {
 }
 
 function install_php () {
+    # installing PHP
+    massager_plus "Installing PHP"
     function instal_from_source () {
         echo "step not configured"
         exit 1;
@@ -181,6 +208,8 @@ function install_php () {
 }
 
 function install_mariadb () {
+    # installing MariaDB
+    massager_plus "Installing MariaDB"
 
     function install_from_source () {
         echo "step not configured"
@@ -199,6 +228,8 @@ function install_mariadb () {
 }
 
 function install_wordpress () {
+    # installing WordPress
+    massager_plus "Installing WordPress"
 
     function install_from_source () {
         # Download WordPress in the last version
@@ -226,6 +257,8 @@ function install_wordpress () {
 #############################
 
 function install_server () {
+    massager_line "Install server step"
+
     ## WEB SERVER - Apache
     install_apache
     ## DATABASE SERVER - MariaDB
@@ -241,6 +274,7 @@ function install_server () {
 
 function start_apache () {
     # starting apache
+    massager_plus "Starting Apache"
 
     #service apache2 start
     #systemctl start apache
@@ -251,7 +285,8 @@ function start_apache () {
 }
 
 function start_mariadb () {
-    # starting mariadb
+    # starting MariaDB
+    massager_plus "Starting MariaDB"
 
     #service mariadb start
     #systemctl start mariadb
@@ -263,6 +298,7 @@ function start_mariadb () {
 
 function stop_apache () {
     # stopping apache
+    massager_plus "Stopping Apache"
 
     #service apache2 stop
     #systemctl stop apache
@@ -275,6 +311,7 @@ function stop_apache () {
 
 function stop_mariadb () {
     # stopping mariadb
+    massager_plus "Stopping Apache"
 
     #service mariadb stop
     #systemctl stop mariadb
@@ -288,6 +325,8 @@ function stop_mariadb () {
 ################################
 
 function start_server () {
+    massager_line "Starting server step"
+
     # Starting Service
 
     # starting apache
@@ -298,6 +337,7 @@ function start_server () {
 }
 
 function stop_server () {
+    massager_line "Stopping server step"
 
     # stopping server
     stop_apache
@@ -308,17 +348,17 @@ function stop_server () {
 ## configuration steps ##
 function configure_apache() {
     # Configuring Apache
-    echo "Configuring Apache"
+    massager_plus "Configuring Apache"
 
-    local site_name="${site_name:-'debian'}"
+    local site_name="${site_name:-debian}"
     local site_path="${site_path:-'/var/www/html'}"
-    local site_subdomain="${site_subdomain:-'debian'}"
-    local site_root_domain="${site_root_domain:-'local'}"
-    local site_ssl_enabled="${site_ssl_enabled:-'false'}"
+    local site_subdomain="${site_subdomain:-debian}"
+    local site_root_domain="${site_root_domain:-local}"
+    local site_ssl_enabled="${site_ssl_enabled:-false}"
 
     function configure_apache_security() {
         # Configuring Apache Security
-        echo "configuring apache security"
+        massager_plus "Configuring Apache Security"
 
         # disable apache directory listing
         cp /etc/apache2/apache2.conf /etc/apache2/apache2.conf.bkp_${DATE_NOW} 
@@ -358,6 +398,8 @@ function configure_apache() {
     }
 
     function configure_apache_site() {
+        # Configuring Apache Site
+        massager_plus "Configuring Apache Site"
         # setting Apache Site
 
         #site_name="debian"
@@ -449,25 +491,60 @@ function configure_apache() {
 }
 
 function configure_mariadb() {
-    # configuring MariaDB Server
-    local database_host="${database_host:-'localhost'}"
-    local database_root_user="${database_root_user:-'root'}"
-    local database_root_pass="${database_root_pass:-'supersecret123'}"
+    # Configuring MariaDB
+    massager_plus "Configuring MariaDB"
 
-    local database_user="${database_user:-'sysadmin'}"
-    local database_pass="${database_pass:-'masterpassword123'}"
+    local database_bind_address="${database_bind_address:-127.0.0.1}" # setting to listen only localhost
+    #local database_bind_address="0.0.0.0" # setting to listen for everybody
+    local database_bind_port="${database_bind_port:-3306}" # setting to listen on default MySQL port
+
+
+    local database_host="${database_host:-localhost}"
+    local database_port="${database_port:-${database_bind_port}}"
+    local database_root_user="${database_root_user:-root}"
+    local database_root_pass="${database_root_pass:-supersecret123}"
+
+    local database_user="${database_user:-sysadmin}"
+    local database_pass="${database_pass:-masterpassword123}"
     local database_user_access_host="${database_user_access_host:-'%'}" # grant access by database for any host
-    local database_db_name="${database_db_name:-'xpto'}"
-    local database_db_charset="${database_db_charset:-'utf8mb4'}"
-    local database_db_collate="${database_db_collate:-'utf8mb4_general_ci'}"
+    local database_db_name="${database_db_name:-xpto}"
+    local database_db_charset="${database_db_charset:-utf8mb4}"
+    local database_db_collate="${database_db_collate:-utf8mb4_unicode_ci}"
+
+    function check_mariadb_is_alive() {
+        # Checking if MariaDB Server is alive
+        massager_plus "Checking if MariaDB Server is alive"
+        # Retry settings
+        local max_retries=5
+        local delay_between_retries=2
+
+        for ((i=1; i<=$max_retries; i++)); do
+            # Try to connect to MySQL
+            echo "port: ${database_port}"
+            echo "host: ${database_host}"
+            #mysql -h ${database_host} -P ${database_port} -u ${database_root_user} -p"${database_root_pass}" -e "SELECT VERSION();"
+            mysqladmin -h ${database_host} -P ${database_port} ping
+
+            # Check the exit code of the previous command
+            if [ $? -eq 0 ]; then
+                echo "MySQL server is responding."
+                break
+            else
+                echo "Attempt $i of $max_retries: Unable to connect to MySQL server."
+                if [ $i -lt $max_retries ]; then
+                    echo "Waiting $delay_between_retries seconds before the next attempt..."
+                    sleep $delay_between_retries
+                else
+                    echo "Exceeded the maximum number of retries. Aborting the script."
+                    exit 1
+                fi
+            fi
+        done
+    }
 
     function configure_mariadb_server() {
-        # configuring mariadb server
-
-        database_bind_address="${database_bind_address:-'127.0.0.1'}" # setting to listen only localhost
-        #database_bind_address="0.0.0.0" # setting to listen for everybody
-
-        database_bind_port="${database_bind_port:-'3306'}" # setting to listen on default MySQL port
+        # Configuring MariaDB Server
+        massager_plus "Configuring MariaDB Server"
 
         echo "
         [mysqld]
@@ -485,15 +562,14 @@ function configure_mariadb() {
         # security configurations
         version = 10
 
-        " > /etc/mysql/mariadb.conf.d/99-server.cnf 
-        remove_space_from_beginning_of_line "4" "/etc/mysql/mariadb.conf.d/99-server.cnf "
+        " > /etc/mysql/mariadb.conf.d/99-server.cnf
+        remove_space_from_beginning_of_line "8" "/etc/mysql/mariadb.conf.d/99-server.cnf"
 
     }
 
-    start_mariadb;
     function configure_mariadb_security() {
         # Configuring MariaDB Security
-        echo "configuring MariaDB security"
+        massager_plus "Configuring MariaDB Security"
 
         #  Enables to improve the security of MariaDB
         #mysql_secure_installation
@@ -506,17 +582,17 @@ function configure_mariadb() {
         mysql -e "ALTER USER '$database_root_user'@'localhost' IDENTIFIED BY '$database_root_pass';"
 
         # Delete anonymous users
-        mysql -h $database_host -u"$database_root_user" -p"$database_root_pass" -e "DELETE FROM mysql.user WHERE User='';"
+        mysql -h ${database_host} -P ${database_port} -u ${database_root_user} -p"${database_root_pass}" -e "DELETE FROM mysql.user WHERE User='';"
 
         # disallow remote login for root
-        #mysql -h $database_host -u"$database_root_user" -p"$database_root_pass" -e "ALTER USER 'root'@'localhost' IDENTIFIED WITH 'mysql_native_password' BY 'sua_senha';"
-        mysql -h $database_host -u"$database_root_user" -p"$database_root_pass" -e "DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');"
+        #mysql -h ${database_host} -P ${database_port} -u ${database_root_user} -p"${database_root_pass}" -e "ALTER USER 'root'@'localhost' IDENTIFIED WITH 'mysql_native_password' BY 'sua_senha';"
+        mysql -h ${database_host} -P ${database_port} -u ${database_root_user} -p"${database_root_pass}" -e "DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');"
 
         # Remove the test database
-        mysql -h $database_host -u"$database_root_user" -p"$database_root_pass" -e "DROP DATABASE IF EXISTS test;"
+        mysql -h ${database_host} -P ${database_port} -u ${database_root_user} -p"${database_root_pass}" -e "DROP DATABASE IF EXISTS test;"
 
         # Make our changes take effect
-        mysql -h $database_host -u"$database_root_user" -p"$database_root_pass" -e "FLUSH PRIVILEGES;"
+        mysql -h ${database_host} -P ${database_port} -u ${database_root_user} -p"${database_root_pass}" -e "FLUSH PRIVILEGES;"
 
         # EOF(end-of-file) IS ALTERNATIVE METHOD, MORE VERBOSE
         #mysql --user=root << EOF
@@ -531,27 +607,42 @@ function configure_mariadb() {
     }
 
     function creating_mariadb_user() {
+        # Configuring MariaDB user
+        massager_plus "Configuring MariaDB user"
+
         # making new user
-        mysql -h $database_host -u"$database_root_user" -p"$database_root_pass" -e "CREATE USER ${database_user}@'${database_user_access_host}' IDENTIFIED BY '$database_pass';"
-        mysql -h $database_host -u"$database_root_user" -p"$database_root_pass" -e "FLUSH PRIVILEGES;"
+        mysql -h ${database_host} -P ${database_port} -u ${database_root_user} -p"${database_root_pass}" -e "CREATE USER ${database_user}@'${database_user_access_host}' IDENTIFIED BY '$database_pass';"
+        mysql -h ${database_host} -P ${database_port} -u ${database_root_user} -p"${database_root_pass}" -e "FLUSH PRIVILEGES;"
     }
 
     function creating_mariadb_database() {
+        # Creating New Database
+        massager_plus "Creating New Database"
+
         # making new database
-        mysql -h $database_host -u"$database_root_user" -p"$database_root_pass" -e "CREATE DATABASE ${database_db_name} CHARACTER SET ${database_db_charset} COLLATE ${database_db_collate};"
-        mysql -h $database_host -u"$database_root_user" -p"$database_root_pass" -e "GRANT ALL PRIVILEGES ON ${database_db_name}.* TO ${database_user}@'${database_user_access_host}';"
-        mysql -h $database_host -u"$database_root_user" -p"$database_root_pass" -e "FLUSH PRIVILEGES;"
+        mysql -h ${database_host} -P ${database_port} -u ${database_root_user} -p"${database_root_pass}" -e "CREATE DATABASE ${database_db_name} CHARACTER SET ${database_db_charset} COLLATE ${database_db_collate};"
+        mysql -h ${database_host} -P ${database_port} -u ${database_root_user} -p"${database_root_pass}" -e "GRANT ALL PRIVILEGES ON ${database_db_name}.* TO ${database_user}@'${database_user_access_host}';"
+        mysql -h ${database_host} -P ${database_port} -u ${database_root_user} -p"${database_root_pass}" -e "FLUSH PRIVILEGES;"
     }
+
+    start_mariadb;
+    check_mariadb_is_alive;
+    configure_mariadb_server;
+    configure_mariadb_security;
+    creating_mariadb_user;
+    creating_mariadb_database;
     stop_mariadb;
 
-    configure_mariadb_server
-    configure_mariadb_security
-    creating_mariadb_user
-    creating_mariadb_database
 }
 
 function configure_wordpress() {
+    # Configuring WordPress
+    massager_plus "Configuring WordPress"
+
     function configure_apache_wordpress() {
+        # Configuring Apache for WordPress
+        massager_plus "Configure Apache for WordPress"
+
         # Configure Apache for WordPress
 
         local site_name="${site_name}"
@@ -566,8 +657,9 @@ function configure_wordpress() {
     }
 
     function configure_mariadb_wordpress() {
-        # Configuring MariaDB for WordPress
-        echo "Configuring MariaDB for WordPress"
+        # Configuring Configuring MariaDB for WordPress
+        massager_plus "Configuring MariaDB for WordPress"
+        
         local database_host="${database_host}"
         local database_root_user="${database_root_user}"
         local database_root_pass="${database_root_pass}"
@@ -584,14 +676,15 @@ function configure_wordpress() {
     
     function configure_wordpress_security() {
         # Configuring WordPress Security
-        echo "configuring WordPress security"
+        massager_plus "Configuring WordPress Security"
+
         echo "Step not configured"
         exit 1;
     }
 
     function configure_wordpress_configs() {
         # Configuring WordPress configs
-        echo "Configuring WordPress configs"
+        massager_plus "Configuring WordPress configs"
 
         # setting variables on WordPress
         mv /var/www/wordpress/wp-config-sample.php /var/www/wordpress/wp-config.php
@@ -610,24 +703,16 @@ function configure_wordpress() {
 
     }
 
-    # configuring security on WordPress
+    configure_apache_wordpress
+    configure_mariadb_wordpress
     #configure_wordpress_security
-    # configuring WordPress on WordPress Server
     configure_wordpress_configs
 }
 ################################
 
 function configure_server () {
     # configure server
-
-    # configure Apache for WordPress
-    configure_apache_wordpress
-
-    # configure MariaDB server for WordPress
-    configure_mariadb_wordpress
-
-    # configure PHP 
-    #configure_php
+    massager_line "Configure server"
 
     # configure WordPress 
     configure_wordpress
@@ -637,12 +722,16 @@ function configure_server () {
 ## check steps ##
 
 function check_configs_apache() {
-    #check config of apache
+    # Check config of Apache
+    massager_plus "Check config of Apache"
+
     apachectl configtest
 }
 
 function check_configs_database() {
-    #check config of database
+    # Check config of Database
+    massager_plus "Check config of Database"
+
     echo "step not configured"
     exit 1;
 }
@@ -656,6 +745,7 @@ function check_configs_wordpress() {
 ################################
 
 function check_configs () {
+    massager_line "Check Configs server"
 
     # check if the configuration file is ok.
     check_configs_apache
@@ -667,7 +757,9 @@ function check_configs () {
 ## test steps ##
 
 function test_apache () {
-    # testing apache
+    # Testing Apache
+    massager_plus "Testing of Apache"
+
 
     # is running ????
     #service apache2 status
@@ -745,7 +837,8 @@ function test_apache () {
 }
 
 function test_mariadb () {
-    # testing mariadb
+    # Testing MariaDB
+    massager_plus "Testing of MariaDB"
 
     # is running ????
     #service mariadb status
@@ -803,7 +896,7 @@ function test_mariadb () {
 ################################
 
 function test_server () {
-    # TESTS
+    massager_line "Testing server"
 
     # testing Apache
     test_apache
@@ -817,8 +910,6 @@ function test_server () {
 # end main functions
 # ============================== #
 
-
-
 # end definition functions
 # ============================================================ #
 # start argument reading
@@ -826,6 +917,7 @@ function test_server () {
 # end argument reading
 # ============================================================ #
 # start main executions of code
+massager_sharp "Starting WordPress installation script"
 pre_install_server;
 install_server;
 stop_server;
@@ -833,4 +925,5 @@ configure_server;
 check_configs;
 start_server;
 test_server;
+massager_sharp "Finished WordPress installation script"
 
